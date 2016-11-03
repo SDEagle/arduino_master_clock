@@ -1,8 +1,9 @@
 #include "MIDIUSB.h"
-#include "PitchToNote.h"
 
 #define BOUNCE_LOCK_OUT
 #include <Bounce2.h>
+
+#include <TimerOne.h>
 
 #define PORT_START_STOP 2
 #define PORT_NEXT 3
@@ -14,6 +15,9 @@ boolean running = false;
 Bounce start_stop_bouncer = Bounce();
 Bounce next_bouncer = Bounce();
 Bounce prev_bouncer = Bounce();
+
+// Beats per thousand minitues, BPM with three decimal places
+unsigned long bptm = 60000;
 
 void setup() {
   pinMode(PORT_START_STOP, INPUT);
@@ -28,13 +32,12 @@ void setup() {
   start_stop_bouncer.interval(BOUNCE_TIME);
   next_bouncer.interval(BOUNCE_TIME);
   prev_bouncer.interval(BOUNCE_TIME);
+
+  Timer1.initialize(calculateIntervalMicroSecs(bptm));
+  Timer1.attachInterrupt(sendClockPulse);
 }
 
-
 void loop() {
-  sendClock();
-  delay(42);
-
   start_stop_bouncer.update();
   next_bouncer.update();
   prev_bouncer.update();
@@ -71,7 +74,16 @@ void onPrevPressed() {
   }
 }
 
-void sendClock() {
+void updateTimer() {
+  Timer1.setPeriod(calculateIntervalMicroSecs(bptm));
+}
+
+unsigned long calculateIntervalMicroSecs(unsigned long bptm) {
+  // 60 * 1000 * 1000 * 1000 / 24 (PULSES PER BEAT) /bptm
+  return 2500000000ul / bptm;
+}
+
+void sendClockPulse() {
   uint8_t data[2];
   data[0] = 0x0F;
   data[1] = 0xF8;
